@@ -1,9 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { updateUser, checkUsernameAvailable } from '../utils/api';
 import './EditProfileModal.css';
 
 const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
-  const [username, setUsername] = useState(userData?.username || '');
+  const [username, setUsername] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [croppedImage, setCroppedImage] = useState(null);
   const [cropping, setCropping] = useState(false);
@@ -16,13 +16,51 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
 
-  // Crop state
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  // Crop state with constraints
+  const [crop, setCrop] = useState({ x: 50, y: 50, width: 200, height: 200 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Reset ALL state when userData changes (different user login)
+  useEffect(() => {
+    if (userData?.username) {
+      setUsername(userData.username);
+    } else {
+      setUsername('');
+    }
+    // Clear everything else
+    setSelectedImage(null);
+    setCroppedImage(null);
+    setCropping(false);
+    setError('');
+    setUsernameError('');
+    setWalletCopied(false);
+    setCheckingUsername(false);
+    setCrop({ x: 50, y: 50, width: 200, height: 200 });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [userData?.walletAddress]); // Use walletAddress as unique key
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedImage(null);
+      setCroppedImage(null);
+      setCropping(false);
+      setError('');
+      setUsernameError('');
+      setCheckingUsername(false);
+      setWalletCopied(false);
+      setCrop({ x: 50, y: 50, width: 200, height: 200 });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isOpen]);
+
   const validateUsername = (value) => {
-    // Only allow letters, numbers, and hyphens
     const validChars = /^[a-zA-Z0-9-]*$/;
     if (!validChars.test(value)) {
       return 'Only letters, numbers, and hyphens allowed';
@@ -37,7 +75,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleUsernameChange = async (e) => {
-    const value = e.target.value.toLowerCase(); // Force lowercase
+    const value = e.target.value.toLowerCase();
     setUsername(value);
     
     const validation = validateUsername(value);
@@ -46,13 +84,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       return;
     }
 
-    // Skip check if it's the same as current username
     if (value === userData?.username?.toLowerCase()) {
       setUsernameError('');
       return;
     }
 
-    // Check availability
     setCheckingUsername(true);
     setUsernameError('');
     
@@ -72,14 +108,12 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       setError('Please select a JPG, PNG, JPEG, or WebP image');
       return;
     }
 
-    // Validate file size (1.5MB)
     if (file.size > 1.5 * 1024 * 1024) {
       setError('Image must be less than 1.5MB');
       return;
@@ -90,22 +124,40 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Check minimum dimensions
         if (img.width < 500 || img.height < 500) {
           setError('Image must be at least 500x500 pixels');
           return;
         }
         setSelectedImage(e.target.result);
         setCropping(true);
+        // Reset crop to center
+        setCrop({ x: 50, y: 50, width: 200, height: 200 });
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   };
 
+  const constrainCrop = (newCrop, imageRect) => {
+    const maxX = imageRect.width - newCrop.width;
+    const maxY = imageRect.height - newCrop.height;
+    
+    return {
+      x: Math.max(0, Math.min(newCrop.x, maxX)),
+      y: Math.max(0, Math.min(newCrop.y, maxY)),
+      width: Math.min(newCrop.width, imageRect.width),
+      height: Math.min(newCrop.height, imageRect.height)
+    };
+  };
+
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
-    setIsDragging(true);
+    
+    if (e.target.classList.contains('resize-corner')) {
+      setIsResizing(true);
+    } else {
+      setIsDragging(true);
+    }
     
     const rect = e.currentTarget.getBoundingClientRect();
     setDragStart({
@@ -115,30 +167,37 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   }, []);
 
   const handleMouseMove = useCallback((e) => {
-    if (!isDragging || !imageRef.current) return;
-
+    if (!imageRef.current || (!isDragging && !isResizing)) return;
+    
     const imageRect = imageRef.current.getBoundingClientRect();
     const parentRect = imageRef.current.parentElement.getBoundingClientRect();
     
-    const newX = e.clientX - parentRect.left - dragStart.x;
-    const newY = e.clientY - parentRect.top - dragStart.y;
-    
-    // Constrain within image bounds (150px is crop selector size)
-    const maxX = imageRect.width - 150;
-    const maxY = imageRect.height - 150;
-    
-    const constrainedX = Math.max(0, Math.min(newX, maxX));
-    const constrainedY = Math.max(0, Math.min(newY, maxY));
-
-    setCrop({ x: constrainedX, y: constrainedY });
-  }, [isDragging, dragStart]);
+    if (isDragging) {
+      const newX = e.clientX - parentRect.left - dragStart.x;
+      const newY = e.clientY - parentRect.top - dragStart.y;
+      
+      const newCrop = { ...crop, x: newX, y: newY };
+      const constrainedCrop = constrainCrop(newCrop, imageRect);
+      setCrop(constrainedCrop);
+      
+    } else if (isResizing) {
+      const newWidth = e.clientX - parentRect.left - crop.x;
+      const newHeight = e.clientY - parentRect.top - crop.y;
+      
+      const size = Math.min(Math.max(100, Math.min(newWidth, newHeight)), 
+                           Math.min(imageRect.width - crop.x, imageRect.height - crop.y));
+      
+      setCrop(prev => ({ ...prev, width: size, height: size }));
+    }
+  }, [isDragging, isResizing, dragStart, crop]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    setIsResizing(false);
   }, []);
 
   React.useEffect(() => {
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -146,7 +205,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
   const cropImage = () => {
     if (!selectedImage || !imageRef.current || !canvasRef.current) return;
@@ -155,25 +214,23 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     const ctx = canvas.getContext('2d');
     const img = imageRef.current;
 
-    // Set canvas to 500x500
     canvas.width = 500;
     canvas.height = 500;
 
-    // Calculate scale between displayed and actual image
     const scaleX = img.naturalWidth / img.offsetWidth;
     const scaleY = img.naturalHeight / img.offsetHeight;
 
-    // Scale crop position and size to actual image coordinates
     const actualCropX = crop.x * scaleX;
     const actualCropY = crop.y * scaleY;
-    const actualCropSize = 150 * Math.max(scaleX, scaleY); // Maintain aspect ratio
+    const actualCropWidth = crop.width * scaleX;
+    const actualCropHeight = crop.height * scaleY;
 
     ctx.drawImage(
       img,
       actualCropX,
       actualCropY,
-      actualCropSize,
-      actualCropSize,
+      actualCropWidth,
+      actualCropHeight,
       0,
       0,
       500,
@@ -241,17 +298,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     }
   };
 
-  const resetImage = () => {
-    setSelectedImage(null);
-    setCroppedImage(null);
-    setCropping(false);
-    setError('');
-    setCrop({ x: 0, y: 0 });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -267,7 +313,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
             <div className="error-message">{error}</div>
           )}
 
-          {/* 2x2 Grid Layout */}
           <div className="profile-grid">
             {/* Profile Picture */}
             <div className="grid-item profile-section">
@@ -278,19 +323,12 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                   alt="Profile" 
                   className="profile-preview"
                 />
-                <div className="picture-controls">
-                  <button 
-                    className="select-image-btn" 
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Select
-                  </button>
-                  {selectedImage && (
-                    <button className="reset-image-btn" onClick={resetImage}>
-                      Reset
-                    </button>
-                  )}
-                </div>
+                <button 
+                  className="select-image-btn" 
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Select Image
+                </button>
               </div>
               <p className="image-hint">Min 500x500 • Max 1.5MB</p>
             </div>
@@ -326,23 +364,14 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                   onClick={copyWalletAddress}
                   title={walletCopied ? 'Copied!' : 'Copy wallet address'}
                 >
-                  {walletCopied ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    </svg>
-                  )}
+                  {walletCopied ? '✓' : '⧉'}
                 </button>
               </div>
             </div>
 
-            {/* Empty slot for balance or future use */}
+            {/* Empty slot */}
             <div className="grid-item empty-section">
-              <div className="coming-soon">More features coming soon...</div>
+              <div className="coming-soon">Coming soon...</div>
             </div>
           </div>
         </div>
@@ -358,7 +387,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           </button>
         </div>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -367,7 +395,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           style={{ display: 'none' }}
         />
 
-        {/* Image Cropping Modal */}
         {cropping && selectedImage && (
           <div className="crop-overlay">
             <div className="crop-container">
@@ -388,11 +415,13 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                     style={{
                       left: crop.x,
                       top: crop.y,
-                      width: 150,
-                      height: 150,
+                      width: crop.width,
+                      height: crop.height,
                     }}
                     onMouseDown={handleMouseDown}
-                  />
+                  >
+                    <div className="resize-corner" />
+                  </div>
                 </div>
               </div>
               <div className="crop-footer">
@@ -403,7 +432,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           </div>
         )}
 
-        {/* Hidden canvas for cropping */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
       </div>
     </div>
