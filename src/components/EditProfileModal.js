@@ -13,11 +13,10 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
 
-  // Crop state
-  const [crop, setCrop] = useState({ x: 0, y: 0, width: 200, height: 200 });
+  // Crop state - 500x500
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: 500, height: 500 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [imageScale, setImageScale] = useState(1);
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -39,8 +38,17 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setError('');
     const reader = new FileReader();
     reader.onload = (e) => {
-      setSelectedImage(e.target.result);
-      setCropping(true);
+      const img = new Image();
+      img.onload = () => {
+        // Check minimum dimensions
+        if (img.width < 500 || img.height < 500) {
+          setError('Image must be at least 500x500 pixels');
+          return;
+        }
+        setSelectedImage(e.target.result);
+        setCropping(true);
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   };
@@ -85,8 +93,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     const ctx = canvas.getContext('2d');
     const img = imageRef.current;
 
-    canvas.width = 200;
-    canvas.height = 200;
+    // Set canvas to 500x500
+    canvas.width = 500;
+    canvas.height = 500;
 
     const scaleX = img.naturalWidth / img.width;
     const scaleY = img.naturalHeight / img.height;
@@ -99,8 +108,8 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       crop.height * scaleY,
       0,
       0,
-      200,
-      200
+      500,
+      500
     );
 
     canvas.toBlob((blob) => {
@@ -114,7 +123,10 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleSave = async () => {
-    if (!userData?.username) return;
+    if (!userData?.username && !username.trim()) {
+      setError('Username is required');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -122,7 +134,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     try {
       const updateData = {
         privyUserId: userData.privyUserId || userData.id,
-        username: username.trim(),
+        username: username.trim() || userData.username,
       };
 
       if (croppedImage) {
@@ -139,7 +151,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      setError('Failed to update profile');
+      setError(error.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -186,7 +198,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                   className="select-image-btn" 
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Select Image
+                  Select
                 </button>
                 {selectedImage && (
                   <button className="reset-image-btn" onClick={resetImage}>
@@ -195,7 +207,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                 )}
               </div>
             </div>
-            <p className="image-hint">Max 1.5MB • JPG, PNG, JPEG, WebP</p>
+            <p className="image-hint">Min 500x500 • Max 1.5MB • JPG, PNG, JPEG, WebP</p>
           </div>
 
           {/* Username Section */}
@@ -221,7 +233,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                   : 'Loading...'
                 }
               </span>
-              <span className="wallet-note">This is your site wallet</span>
             </div>
           </div>
         </div>
@@ -233,7 +244,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
             onClick={handleSave}
             disabled={loading}
           >
-            {loading ? 'Saving...' : 'Save Changes'}
+            {loading ? 'Saving...' : 'Save'}
           </button>
         </div>
 
@@ -251,7 +262,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           <div className="crop-overlay">
             <div className="crop-container">
               <div className="crop-header">
-                <h3>Crop Image</h3>
+                <h3>Crop to 500x500</h3>
               </div>
               <div className="crop-content">
                 <div className="image-crop-area">
@@ -276,7 +287,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
               </div>
               <div className="crop-footer">
                 <button onClick={() => setCropping(false)}>Cancel</button>
-                <button onClick={cropImage}>Apply Crop</button>
+                <button onClick={cropImage}>Crop</button>
               </div>
             </div>
           </div>

@@ -1,11 +1,11 @@
 .edit-modal-container {
   background: var(--night);
   border: 1px solid var(--eerie-black);
-  border-radius: 12px;
-  width: min(420px, 90%);
-  max-height: 80vh;
+  border-radius: 10px;
+  width: min(320px, 85%);
+  max-height: 75vh;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
   animation: slideUp 0.3s ease-out;
 }
 
@@ -13,22 +13,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--eerie-black);
   background: var(--night-2);
 }
 
 .edit-modal-header h2 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--silver);
   margin: 0;
 }
 
 .edit-modal-content {
-  padding: 24px;
-  max-height: 60vh;
+  padding: 16px;
+  max-height: 50vh;
   overflow-y: auto;
 }
 
@@ -36,32 +36,32 @@
   background: rgba(220, 38, 127, 0.1);
   border: 1px solid rgba(220, 38, 127, 0.3);
   color: #ff6b9d;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  margin-bottom: 20px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 16px;
   font-family: 'Montserrat', sans-serif;
 }
 
 .profile-section,
 .username-section,
 .wallet-info {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .section-label {
   display: block;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--silver);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .profile-picture-editor {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .current-picture {
@@ -69,8 +69,8 @@
 }
 
 .profile-preview {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--dim-gray);
@@ -78,16 +78,15 @@
 
 .picture-controls {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .select-image-btn,
 .reset-image-btn {
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
@@ -119,9 +118,9 @@
 
 .image-hint {
   font-family: 'Montserrat', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--dim-gray);
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0;
 }
 
 .username-input {
@@ -129,10 +128,10 @@
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
   color: var(--silver);
-  padding: 12px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 4px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   transition: border-color 0.2s;
 }
 
@@ -144,41 +143,32 @@
 .wallet-display {
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
-  border-radius: 6px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  border-radius: 4px;
+  padding: 8px 10px;
 }
 
 .wallet-text {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--silver);
   font-weight: 500;
 }
 
-.wallet-note {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 11px;
-  color: var(--dim-gray);
-}
-
 .edit-modal-footer {
-  padding: 20px 24px;
+  padding: 12px 16px;
   border-top: 1px solid var(--eerie-black);
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .cancel-btn,
 .save-btn {
   font-family: 'Montserrat', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -227,27 +217,27 @@
   background: var(--night);
   border: 1px solid var(--eerie-black);
   border-radius: 8px;
-  width: min(500px, 90%);
+  width: min(400px, 90%);
   max-height: 80vh;
   overflow: hidden;
 }
 
 .crop-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--eerie-black);
   background: var(--night-2);
 }
 
 .crop-header h3 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--silver);
   margin: 0;
 }
 
 .crop-content {
-  padding: 20px;
+  padding: 16px;
   display: flex;
   justify-content: center;
 }
@@ -256,12 +246,12 @@
   position: relative;
   display: inline-block;
   max-width: 100%;
-  max-height: 400px;
+  max-height: 300px;
 }
 
 .crop-image {
   max-width: 100%;
-  max-height: 400px;
+  max-height: 300px;
   display: block;
   user-select: none;
 }
@@ -280,25 +270,25 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: var(--silver);
   border-radius: 50%;
 }
 
 .crop-footer {
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-top: 1px solid var(--eerie-black);
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .crop-footer button {
   font-family: 'Montserrat', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;

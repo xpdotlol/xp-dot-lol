@@ -1,4 +1,4 @@
-// api/user.js - Updated with image upload support
+// api/user.js - Without Supabase Storage (stores base64 directly in database)
 import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@solana/web3.js';
 import CryptoJS from 'crypto-js';
@@ -57,36 +57,6 @@ async function generateUserId() {
 // Format username: 3 letters...3 letters
 function formatUsername(walletAddress) {
   return `${walletAddress.substring(0, 3)}...${walletAddress.substring(walletAddress.length - 3)}`;
-}
-
-// Upload image to Supabase Storage
-async function uploadProfileImage(imageBase64, userId) {
-  try {
-    // Convert base64 to buffer
-    const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    const fileName = `profile_${userId}_${Date.now()}.jpg`;
-    
-    const { data, error } = await supabase.storage
-      .from('profile-pictures')
-      .upload(fileName, buffer, {
-        contentType: 'image/jpeg',
-        upsert: true
-      });
-
-    if (error) throw error;
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('profile-pictures')
-      .getPublicUrl(fileName);
-
-    return publicUrl;
-  } catch (error) {
-    console.error('Image upload error:', error);
-    throw new Error('Failed to upload image');
-  }
 }
 
 // Main API handler
@@ -244,31 +214,15 @@ async function handleUpdateUser(req, res) {
     return res.status(400).json({ error: 'Missing privyUserId' });
   }
 
-  // Get current user data for userId
-  const { data: currentUser } = await supabase
-    .from('users')
-    .select('user_id')
-    .eq('privy_user_id', privyUserId)
-    .single();
-
-  if (!currentUser) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
   const updateData = {
     updated_at: new Date().toISOString()
   };
 
   if (username) updateData.username = username;
 
-  // Handle profile picture upload
+  // Store base64 image directly in database (no Supabase Storage needed)
   if (profilePicture && profilePicture.startsWith('data:image/')) {
-    try {
-      const imageUrl = await uploadProfileImage(profilePicture, currentUser.user_id);
-      updateData.profile_picture_url = imageUrl;
-    } catch (error) {
-      return res.status(500).json({ error: 'Failed to upload image' });
-    }
+    updateData.profile_picture_url = profilePicture;
   }
 
   const { data, error } = await supabase
@@ -279,6 +233,7 @@ async function handleUpdateUser(req, res) {
     .single();
 
   if (error) {
+    console.error('Update error:', error);
     return res.status(500).json({ error: 'Failed to update user' });
   }
 
