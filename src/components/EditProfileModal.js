@@ -8,10 +8,13 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const [croppedImage, setCroppedImage] = useState(null);
   const [cropping, setCropping] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [error, setError] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [walletCopied, setWalletCopied] = useState(false);
+  const [canChangeUsername, setCanChangeUsername] = useState(true);
+  const [nextUsernameChangeDate, setNextUsernameChangeDate] = useState(null);
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -21,6 +24,23 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Check if user can change username (7-day cooldown)
+  useEffect(() => {
+    if (userData?.lastUsernameChange) {
+      const lastChange = new Date(userData.lastUsernameChange);
+      const sevenDaysLater = new Date(lastChange.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      
+      if (now < sevenDaysLater) {
+        setCanChangeUsername(false);
+        setNextUsernameChangeDate(sevenDaysLater);
+      } else {
+        setCanChangeUsername(true);
+        setNextUsernameChangeDate(null);
+      }
+    }
+  }, [userData?.lastUsernameChange]);
 
   // Reset ALL state when userData changes (different user login)
   useEffect(() => {
@@ -37,6 +57,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setUsernameError('');
     setWalletCopied(false);
     setCheckingUsername(false);
+    setImageUploading(false);
     setCrop({ x: 50, y: 50, width: 200, height: 200 });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -53,6 +74,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       setUsernameError('');
       setCheckingUsername(false);
       setWalletCopied(false);
+      setImageUploading(false);
       setCrop({ x: 50, y: 50, width: 200, height: 200 });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -74,9 +96,22 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     return '';
   };
 
+  const formatTimeRemaining = (date) => {
+    const now = new Date();
+    const diff = date.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days === 1 ? '1 day' : `${days} days`;
+  };
+
   const handleUsernameChange = async (e) => {
     const value = e.target.value.toLowerCase();
     setUsername(value);
+    
+    // Check if user can change username
+    if (!canChangeUsername) {
+      setUsernameError(`Username can only be changed once every 7 days. Next change available in ${formatTimeRemaining(nextUsernameChangeDate)}.`);
+      return;
+    }
     
     const validation = validateUsername(value);
     if (validation) {
@@ -84,6 +119,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       return;
     }
 
+    // If it's the same as current username, no need to check
     if (value === userData?.username?.toLowerCase()) {
       setUsernameError('');
       return;
@@ -93,6 +129,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setUsernameError('');
     
     try {
+      // Check if username is available (no longer excluding current user to prevent hoarding)
       const response = await checkUsernameAvailable(value);
       if (!response.available) {
         setUsernameError('Username already taken');
@@ -120,17 +157,21 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     }
 
     setError('');
+    setImageUploading(true);
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
         if (img.width < 500 || img.height < 500) {
           setError('Image must be at least 500x500 pixels');
+          setImageUploading(false);
           return;
         }
         setSelectedImage(e.target.result);
         setCropping(true);
         setCrop({ x: 50, y: 50, width: 200, height: 200 });
+        setImageUploading(false);
       };
       img.src = e.target.result;
     };
@@ -209,6 +250,8 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const cropImage = () => {
     if (!selectedImage || !imageRef.current || !canvasRef.current) return;
 
+    setImageUploading(true);
+    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const img = imageRef.current;
@@ -241,6 +284,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       reader.onload = () => {
         setCroppedImage(reader.result);
         setCropping(false);
+        setImageUploading(false);
       };
       reader.readAsDataURL(blob);
     }, 'image/jpeg', 0.9);
@@ -259,12 +303,19 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleSave = async () => {
-    if (usernameError || checkingUsername) {
+    if (usernameError || checkingUsername || imageUploading) {
       return;
     }
 
     if (!username.trim()) {
       setUsernameError('Username is required');
+      return;
+    }
+
+    // Check if username changed and if user can change it
+    const usernameChanged = username.trim().toLowerCase() !== userData?.username?.toLowerCase();
+    if (usernameChanged && !canChangeUsername) {
+      setUsernameError(`Username can only be changed once every 7 days. Next change available in ${formatTimeRemaining(nextUsernameChangeDate)}.`);
       return;
     }
 
@@ -275,6 +326,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       const updateData = {
         privyUserId: userData.privyUserId || userData.id,
         username: username.trim(),
+        usernameChanged: usernameChanged
       };
 
       if (croppedImage) {
@@ -296,6 +348,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
       setLoading(false);
     }
   };
+
+  // Check if save should be disabled
+  const isSaveDisabled = loading || usernameError || checkingUsername || imageUploading;
 
   if (!isOpen) return null;
 
@@ -325,8 +380,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                 <button 
                   className="select-image-btn" 
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={imageUploading}
                 >
-                  Select Image
+                  {imageUploading ? 'Processing...' : 'Select Image'}
                 </button>
                 <p className="image-hint">Min 500x500<br/>Max 1.5MB</p>
               </div>
@@ -342,10 +398,16 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                 className={`username-input ${usernameError ? 'error' : ''}`}
                 placeholder="Enter username"
                 maxLength={20}
+                disabled={!canChangeUsername}
               />
               {checkingUsername && <p className="checking-text">Checking...</p>}
               {usernameError && <p className="field-error">{usernameError}</p>}
-              <p className="username-hint">3-20 chars • a-z, 0-9, -</p>
+              <p className="username-hint">
+                {canChangeUsername 
+                  ? '3-20 chars • a-z, 0-9, -' 
+                  : `Can change in ${formatTimeRemaining(nextUsernameChangeDate)}`
+                }
+              </p>
             </div>
 
             {/* Site Wallet - Bottom right */}
@@ -354,7 +416,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
               <div className="wallet-display">
                 <span className="wallet-text">
                   {userData?.walletAddress ? 
-                    `${userData.walletAddress.substring(0, 6)}...${userData.walletAddress.substring(-4)}` 
+                    `${userData.walletAddress.substring(0, 6)}...${userData.walletAddress.substring(userData.walletAddress.length - 4)}` 
                     : 'Loading...'
                   }
                 </span>
@@ -375,9 +437,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           <button 
             className="save-btn" 
             onClick={handleSave}
-            disabled={loading || usernameError || checkingUsername}
+            disabled={isSaveDisabled}
           >
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? 'Saving...' : imageUploading ? 'Processing Image...' : 'Save'}
           </button>
         </div>
 
@@ -420,7 +482,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
               </div>
               <div className="crop-footer">
                 <button onClick={() => setCropping(false)}>Cancel</button>
-                <button onClick={cropImage}>Crop</button>
+                <button onClick={cropImage} disabled={imageUploading}>
+                  {imageUploading ? 'Processing...' : 'Crop'}
+                </button>
               </div>
             </div>
           </div>

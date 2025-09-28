@@ -1,4 +1,4 @@
-// api/user.js - With unique username validation
+// api/user.js - With 7-day username change cooldown
 import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@solana/web3.js';
 import CryptoJS from 'crypto-js';
@@ -84,29 +84,55 @@ function validateUsername(username) {
   return { valid: true, username: trimmed };
 }
 
-// Check if username is available (case-insensitive)
-async function isUsernameAvailable(username, excludeUserId = null) {
+// Check if username is available (no exclusions - prevents hoarding)
+async function isUsernameAvailable(username) {
   const validation = validateUsername(username);
   if (!validation.valid) {
     return { available: false, error: validation.error };
   }
   
-  let query = supabase
+  const { data, error } = await supabase
     .from('users')
     .select('id')
-    .ilike('username', validation.username); // Case-insensitive search
-  
-  if (excludeUserId) {
-    query = query.neq('privy_user_id', excludeUserId);
-  }
-  
-  const { data, error } = await query.single();
+    .ilike('username', validation.username)
+    .single();
   
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
     throw error;
   }
   
   return { available: !data, username: validation.username };
+}
+
+// Check if user can change username (7-day cooldown)
+async function canChangeUsername(privyUserId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('last_username_change')
+    .eq('privy_user_id', privyUserId)
+    .single();
+  
+  if (error) {
+    throw error;
+  }
+  
+  if (!data.last_username_change) {
+    return { canChange: true };
+  }
+  
+  const lastChange = new Date(data.last_username_change);
+  const sevenDaysLater = new Date(lastChange.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  
+  if (now < sevenDaysLater) {
+    return { 
+      canChange: false, 
+      nextChangeDate: sevenDaysLater,
+      daysRemaining: Math.ceil((sevenDaysLater - now) / (1000 * 60 * 60 * 24))
+    };
+  }
+  
+  return { canChange: true };
 }
 
 // Main API handler
@@ -153,10 +179,10 @@ async function handleCheckUsername(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { username, excludeUserId } = req.body;
+  const { username } = req.body;
 
   try {
-    const result = await isUsernameAvailable(username, excludeUserId);
+    const result = await isUsernameAvailable(username);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Username check error:', error);
@@ -179,7 +205,7 @@ async function handleCreateOrGetUser(req, res) {
   // Check if user already exists
   const { data: existingUser } = await supabase
     .from('users')
-    .select('username, wallet_address, profile_picture_url')
+    .select('username, wallet_address, profile_picture_url, last_username_change')
     .eq('privy_user_id', privyUserId)
     .single();
 
@@ -195,7 +221,8 @@ async function handleCreateOrGetUser(req, res) {
       user: {
         username: existingUser.username,
         walletAddress: existingUser.wallet_address,
-        profilePicture: existingUser.profile_picture_url
+        profilePicture: existingUser.profile_picture_url,
+        lastUsernameChange: existingUser.last_username_change
       }
     });
   }
@@ -217,9 +244,10 @@ async function handleCreateOrGetUser(req, res) {
       login_method: loginMethod,
       signin_wallet_address: signinWalletAddress,
       email: email,
-      profile_picture_url: '/pfpdefault.png'
+      profile_picture_url: '/pfpdefault.png',
+      last_username_change: null // No username change yet for new users
     })
-    .select('username, wallet_address, profile_picture_url')
+    .select('username, wallet_address, profile_picture_url, last_username_change')
     .single();
 
   if (error) {
@@ -232,7 +260,8 @@ async function handleCreateOrGetUser(req, res) {
     user: {
       username: newUser.username,
       walletAddress: newUser.wallet_address,
-      profilePicture: newUser.profile_picture_url
+      profilePicture: newUser.profile_picture_url,
+      lastUsernameChange: newUser.last_username_change
     }
   });
 }
@@ -251,7 +280,7 @@ async function handleGetUser(req, res) {
 
   const { data, error } = await supabase
     .from('users')
-    .select('username, wallet_address, profile_picture_url, created_at, user_id')
+    .select('username, wallet_address, profile_picture_url, created_at, user_id, last_username_change')
     .eq('privy_user_id', privyUserId)
     .single();
 
@@ -266,7 +295,8 @@ async function handleGetUser(req, res) {
       walletAddress: data.wallet_address,
       profilePicture: data.profile_picture_url,
       createdAt: data.created_at,
-      userId: data.user_id
+      userId: data.user_id,
+      lastUsernameChange: data.last_username_change
     }
   });
 }
@@ -277,7 +307,7 @@ async function handleUpdateUser(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { privyUserId, username, profilePicture } = req.body;
+  const { privyUserId, username, profilePicture, usernameChanged } = req.body;
 
   if (!privyUserId) {
     return res.status(400).json({ error: 'Missing privyUserId' });
@@ -287,15 +317,33 @@ async function handleUpdateUser(req, res) {
     updated_at: new Date().toISOString()
   };
 
-  // Validate and check username if provided
-  if (username) {
-    const availabilityCheck = await isUsernameAvailable(username, privyUserId);
+  // Handle username update with 7-day cooldown
+  if (username && usernameChanged) {
+    // Check if user can change username
+    const cooldownCheck = await canChangeUsername(privyUserId);
+    if (!cooldownCheck.canChange) {
+      return res.status(400).json({ 
+        error: `Username can only be changed once every 7 days. ${cooldownCheck.daysRemaining} days remaining.`
+      });
+    }
+    
+    // Check if username is available
+    const availabilityCheck = await isUsernameAvailable(username);
     if (!availabilityCheck.available) {
       return res.status(400).json({ 
         error: availabilityCheck.error || 'Username already taken' 
       });
     }
+    
     updateData.username = availabilityCheck.username;
+    updateData.last_username_change = new Date().toISOString();
+  } else if (username && !usernameChanged) {
+    // Username provided but not changed, just validate format
+    const validation = validateUsername(username);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+    updateData.username = validation.username;
   }
 
   // Store base64 image directly in database
@@ -307,7 +355,7 @@ async function handleUpdateUser(req, res) {
     .from('users')
     .update(updateData)
     .eq('privy_user_id', privyUserId)
-    .select('username, wallet_address, profile_picture_url')
+    .select('username, wallet_address, profile_picture_url, last_username_change')
     .single();
 
   if (error) {
@@ -320,7 +368,8 @@ async function handleUpdateUser(req, res) {
     user: {
       username: data.username,
       walletAddress: data.wallet_address,
-      profilePicture: data.profile_picture_url
+      profilePicture: data.profile_picture_url,
+      lastUsernameChange: data.last_username_change
     }
   });
 }
