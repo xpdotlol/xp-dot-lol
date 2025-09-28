@@ -43,6 +43,13 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setCrop({ x: 50, y: 50, width: 200, height: 200 });
     setIsDragging(false);
     setIsResizing(false);
+    
+    // Clear debounced username check timeout
+    if (debouncedUsernameCheck.current) {
+      clearTimeout(debouncedUsernameCheck.current);
+      debouncedUsernameCheck.current = null;
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -136,11 +143,8 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     return days === 1 ? '1 day' : `${days} days`;
   };
 
-  const handleUsernameChange = async (e) => {
-    const value = e.target.value.toLowerCase();
-    setUsername(value);
-    
-    // CRITICAL: Validate session before any operation
+  // Debounced username availability check
+  const checkUsernameAvailability = useCallback(async (value) => {
     if (!validateUserSession()) {
       return;
     }
@@ -176,6 +180,28 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     } finally {
       setCheckingUsername(false);
     }
+  }, [validateUserSession, canChangeUsername, nextUsernameChangeDate, userData?.username]);
+
+  // Debounce the username check by 1 second
+  const debouncedUsernameCheck = useRef(null);
+  
+  const handleUsernameChange = (e) => {
+    const value = e.target.value.toLowerCase();
+    setUsername(value);
+    
+    // Clear any existing timeout
+    if (debouncedUsernameCheck.current) {
+      clearTimeout(debouncedUsernameCheck.current);
+    }
+    
+    // Clear previous errors immediately on typing
+    setUsernameError('');
+    setCheckingUsername(false);
+    
+    // Set new timeout for 1 second after user stops typing
+    debouncedUsernameCheck.current = setTimeout(() => {
+      checkUsernameAvailability(value);
+    }, 1000);
   };
 
   const handleImageSelect = (e) => {
