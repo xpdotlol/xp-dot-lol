@@ -2,24 +2,28 @@
   background: var(--night);
   border: 1px solid var(--eerie-black);
   border-radius: 12px;
-  width: min(450px, 90%);
-  overflow: visible;
+  width: min(500px, 95vw);
+  max-height: 90vh;
+  overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
   animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
 }
 
 .edit-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--eerie-black);
   background: var(--night-2);
+  flex-shrink: 0;
 }
 
 .edit-modal-header h2 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--silver);
   margin: 0;
@@ -29,10 +33,10 @@
   background: none;
   border: none;
   color: var(--dim-gray);
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -46,65 +50,71 @@
 }
 
 .edit-modal-content {
-  padding: 24px;
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .error-message {
   background: rgba(220, 38, 127, 0.1);
   border: 1px solid rgba(220, 38, 127, 0.3);
   color: #ff6b9d;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  margin-bottom: 20px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
   font-family: 'Montserrat', sans-serif;
 }
 
-/* 2x2 Grid Layout */
+/* 2x2 Grid Layout - Fixed */
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  max-width: 100%;
 }
 
 .grid-item {
   display: flex;
   flex-direction: column;
+  min-width: 0; /* Prevents grid overflow */
 }
 
 .section-label {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--silver);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-/* Profile Picture Section */
-.profile-section {
-  grid-row: span 2;
+/* Profile Picture Section - Top Left */
+.profile-picture-section {
+  grid-column: 1;
+  grid-row: 1 / 3; /* Spans both rows */
 }
 
 .profile-picture-editor {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .profile-preview {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--dim-gray);
+  border: 2px solid var(--dim-gray);
 }
 
 .select-image-btn {
   font-family: 'Montserrat', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 10px 16px;
+  padding: 8px 14px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -121,23 +131,30 @@
 
 .image-hint {
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--dim-gray);
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0;
   text-align: center;
+  line-height: 1.3;
 }
 
-/* Username Section */
+/* Username Section - Top Right */
+.username-section {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .username-input {
   width: 100%;
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
   color: var(--silver);
-  padding: 12px 14px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .username-input:focus {
@@ -151,46 +168,53 @@
 
 .checking-text {
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--dim-gray);
-  margin: 6px 0 0 0;
+  margin: 4px 0 0 0;
 }
 
 .field-error {
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: #ff6b9d;
-  margin: 6px 0 0 0;
+  margin: 4px 0 0 0;
 }
 
 .username-hint {
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--dim-gray);
-  margin: 6px 0 0 0;
+  margin: 4px 0 0 0;
 }
 
-/* Wallet Section */
+/* Wallet Section - Bottom Right */
+.wallet-section {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .wallet-display {
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
-  border-radius: 8px;
-  padding: 12px 14px;
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .wallet-text {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--silver);
   font-weight: 500;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .copy-wallet-btn {
@@ -198,15 +222,16 @@
   border: none;
   color: var(--dim-gray);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
+  padding: 4px;
+  border-radius: 3px;
   transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  font-size: 14px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .copy-wallet-btn:hover {
@@ -214,41 +239,23 @@
   background: var(--eerie-black);
 }
 
-/* Empty Section */
-.empty-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--night-2);
-  border: 1px solid var(--eerie-black);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.coming-soon {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  color: var(--dim-gray);
-  text-align: center;
-  font-style: italic;
-}
-
 /* Modal Footer */
 .edit-modal-footer {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-top: 1px solid var(--eerie-black);
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .cancel-btn,
 .save-btn {
   font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -282,7 +289,7 @@
   cursor: not-allowed;
 }
 
-/* Crop Modal Styles - Fixed shadow layering */
+/* Crop Modal Styles - Fixed z-index layering */
 .crop-overlay {
   position: fixed;
   inset: 0;
@@ -297,30 +304,32 @@
   background: var(--night);
   border: 1px solid var(--eerie-black);
   border-radius: 12px;
-  width: min(600px, 90%);
-  max-height: 80vh;
+  width: min(600px, 95vw);
+  max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.9);
 }
 
 .crop-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--eerie-black);
   background: var(--night-2);
 }
 
 .crop-header h3 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--silver);
   margin: 0;
 }
 
 .crop-content {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   justify-content: center;
+  max-height: 60vh;
+  overflow: auto;
 }
 
 .image-crop-area {
@@ -356,20 +365,19 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   background: var(--silver);
   border-radius: 50%;
   border: 2px solid var(--night);
 }
 
-/* Resize corner */
 .resize-corner {
   position: absolute;
   bottom: -6px;
   right: -6px;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   background: var(--silver);
   border: 2px solid var(--night);
   cursor: se-resize;
@@ -381,19 +389,19 @@
 }
 
 .crop-footer {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-top: 1px solid var(--eerie-black);
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: flex-end;
 }
 
 .crop-footer button {
   font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -430,5 +438,33 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .edit-modal-container {
+    width: 95vw;
+    margin: 10px;
+  }
+  
+  .profile-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  
+  .profile-picture-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  
+  .username-section {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  
+  .wallet-section {
+    grid-column: 1;
+    grid-row: 3;
   }
 }

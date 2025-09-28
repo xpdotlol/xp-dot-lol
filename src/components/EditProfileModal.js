@@ -41,7 +41,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [userData?.walletAddress]); // Use walletAddress as unique key
+  }, [userData?.walletAddress]);
 
   // Reset when modal closes
   useEffect(() => {
@@ -130,7 +130,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
         }
         setSelectedImage(e.target.result);
         setCropping(true);
-        // Reset crop to center
         setCrop({ x: 50, y: 50, width: 200, height: 200 });
       };
       img.src = e.target.result;
@@ -314,8 +313,8 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           )}
 
           <div className="profile-grid">
-            {/* Profile Picture */}
-            <div className="grid-item profile-section">
+            {/* Profile Picture - Spans left column, both rows */}
+            <div className="grid-item profile-picture-section">
               <label className="section-label">Profile Picture</label>
               <div className="profile-picture-editor">
                 <img 
@@ -329,11 +328,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                 >
                   Select Image
                 </button>
+                <p className="image-hint">Min 500x500<br/>Max 1.5MB</p>
               </div>
-              <p className="image-hint">Min 500x500 • Max 1.5MB</p>
             </div>
 
-            {/* Username */}
+            {/* Username - Top right */}
             <div className="grid-item username-section">
               <label className="section-label">Username</label>
               <input
@@ -349,7 +348,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
               <p className="username-hint">3-20 chars • a-z, 0-9, -</p>
             </div>
 
-            {/* Site Wallet */}
+            {/* Site Wallet - Bottom right */}
             <div className="grid-item wallet-section">
               <label className="section-label">Site Wallet</label>
               <div className="wallet-display">
@@ -367,11 +366,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                   {walletCopied ? '✓' : '⧉'}
                 </button>
               </div>
-            </div>
-
-            {/* Empty slot */}
-            <div className="grid-item empty-section">
-              <div className="coming-soon">Coming soon...</div>
             </div>
           </div>
         </div>
