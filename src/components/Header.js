@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePrivy } from '@privy-io/react-auth';
 import { getUser } from '../utils/api';
+import EditProfileModal from './EditProfileModal'; // ADD THIS IMPORT
 import './Header.css';
 
 const LANGUAGES = [
@@ -21,6 +22,7 @@ const Header = () => {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [langModal, setLangModal] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [lang, setLang] = useState('English');
   const [userData, setUserData] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -71,10 +73,20 @@ const Header = () => {
         await navigator.clipboard.writeText(userData.walletAddress);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        setUserDropdown(false);
       } catch (error) {
         console.error('Failed to copy:', error);
       }
     }
+  };
+
+  const openEditProfile = () => {
+    setShowEditModal(true);
+    setUserDropdown(false);
+  };
+
+  const handleUserUpdate = (updatedUser) => {
+    setUserData(updatedUser);
   };
 
   const handleLogout = () => {
@@ -109,7 +121,7 @@ const Header = () => {
                 onClick={() => setUserDropdown(!userDropdown)}
               >
                 <img 
-                  src={userData.profilePicture} 
+                  src={userData.profilePicture || '/pfpdefault.png'} 
                   alt="Profile" 
                   className="user-avatar"
                 />
@@ -130,6 +142,16 @@ const Header = () => {
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                     </svg>
                     {copied ? 'Copied!' : 'Copy Wallet'}
+                  </button>
+                  <button 
+                    className="dropdown-item" 
+                    onClick={openEditProfile}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit Profile
                   </button>
                   <button 
                     className="dropdown-item" 
@@ -192,6 +214,13 @@ const Header = () => {
           </div>
         </div>
       )}
+
+      <EditProfileModal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)}
+        userData={{...userData, privyUserId: user?.id}}
+        onUserUpdate={handleUserUpdate}
+      />
     </>
   );
 };

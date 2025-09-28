@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { createOrGetUser } from '../utils/api';
-import EditProfileModal from './EditProfileModal';
+import EditProfileModal from './EditProfileModal'; // ADD THIS IMPORT
 import './SignInPopup.css';
 
 const SignInPopup = () => {
@@ -73,6 +73,7 @@ const SignInPopup = () => {
   };
 
   const openEditProfile = () => {
+    console.log('Opening edit profile modal'); // Debug log
     setShowEditModal(true);
     setShowPopup(false);
   };
@@ -88,7 +89,16 @@ const SignInPopup = () => {
   };
 
   // Don't render if not authenticated or no user data
-  if (!showPopup || !userData || loading) return null;
+  if (!showPopup || !userData || loading) return (
+    <>
+      <EditProfileModal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)}
+        userData={{...userData, privyUserId: user?.id}}
+        onUserUpdate={handleUserUpdate}
+      />
+    </>
+  );
 
   // Error state
   if (error) {
@@ -110,7 +120,7 @@ const SignInPopup = () => {
         <EditProfileModal 
           isOpen={showEditModal} 
           onClose={() => setShowEditModal(false)}
-          userData={userData}
+          userData={{...userData, privyUserId: user?.id}}
           onUserUpdate={handleUserUpdate}
         />
       </>
