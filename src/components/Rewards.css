@@ -1,0 +1,21 @@
+.rewards-container {
+  min-height: calc(100vh - 48px);
+  background: var(--night);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.rewards-content {
+  text-align: center;
+}
+
+.rewards-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 48px;
+  font-weight: 600;
+  color: var(--silver);
+  margin: 0;
+  letter-spacing: -1px;
+}

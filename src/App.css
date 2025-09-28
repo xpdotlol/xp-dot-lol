@@ -1,0 +1,29 @@
+:root {
+  --night: #121212ff;
+  --silver: #BBBBBBff;
+  --davys-gray: #4A4A4Aff;
+  --night-2: #0E0E0Eff;
+  --black: #050505ff;
+  --battleship-gray: #878787ff;
+  --black-2: #070707ff;
+  --taupe-gray: #9E9D9Eff;
+  --dim-gray: #6E6E6Eff;
+  --eerie-black: #1D1D1Dff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--night);
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--silver);
+}
+
+.App {
+  min-height: 100vh;
+  background-color: var(--night);
+}
