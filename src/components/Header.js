@@ -5,8 +5,8 @@ import './Header.css';
 
 const LANGUAGES = [
   { code: 'en', name: 'English', native: 'English' },
-  { code: 'zh', name: 'Chinese', native: '中文' },
-  { code: 'ar', name: 'Arabic', native: 'العربية' }
+  { code: 'zh', name: 'Chinese', native: 'ä¸­æ–‡' },
+  { code: 'ar', name: 'Arabic', native: 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©' }
 ];
 
 const NAV_ITEMS = [
@@ -73,7 +73,7 @@ const Header = () => {
           <div className="language-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Select Language</h2>
-              <button className="modal-close" onClick={() => setLangModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setLangModal(false)}>âœ•</button>
             </div>
             <div className="language-options">
               {LANGUAGES.map(({ code, name, native }) => (

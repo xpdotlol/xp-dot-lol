@@ -8,6 +8,7 @@ import XPerpetuals from './components/XPerpetuals';
 import Pledge from './components/Pledge';
 import Referral from './components/Referral';
 import Rewards from './components/Rewards';
+import SignInPopup from './components/SignInPopup';
 
 // Initialize Solana wallet connectors
 const solanaConnectors = toSolanaWalletConnectors({
@@ -44,6 +45,7 @@ function App() {
             <Route path="/refer" element={<Referral />} />
             <Route path="/reward" element={<Rewards />} />
           </Routes>
+          <SignInPopup />
         </div>
       </Router>
     </PrivyProvider>
