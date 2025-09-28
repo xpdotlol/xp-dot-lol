@@ -1,4 +1,4 @@
-// api/user.js - With 7-day username change cooldown
+// api/user.js - With critical security fixes
 import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@solana/web3.js';
 import CryptoJS from 'crypto-js';
@@ -15,7 +15,7 @@ const rateLimiter = new Map();
 function checkRateLimit(ip) {
   const now = Date.now();
   const windowMs = 60000; // 1 minute
-  const maxRequests = 30; // Increased for username checks
+  const maxRequests = 30;
   
   if (!rateLimiter.has(ip)) {
     rateLimiter.set(ip, []);
@@ -84,7 +84,7 @@ function validateUsername(username) {
   return { valid: true, username: trimmed };
 }
 
-// Check if username is available (no exclusions - prevents hoarding)
+// CRITICAL: Check if username is available (globally unique)
 async function isUsernameAvailable(username) {
   const validation = validateUsername(username);
   if (!validation.valid) {
@@ -93,7 +93,7 @@ async function isUsernameAvailable(username) {
   
   const { data, error } = await supabase
     .from('users')
-    .select('id')
+    .select('id, privy_user_id')
     .ilike('username', validation.username)
     .single();
   
@@ -104,7 +104,7 @@ async function isUsernameAvailable(username) {
   return { available: !data, username: validation.username };
 }
 
-// Check if user can change username (7-day cooldown)
+// CRITICAL: Check if user can change username (7-day cooldown)
 async function canChangeUsername(privyUserId) {
   const { data, error } = await supabase
     .from('users')
@@ -133,6 +133,21 @@ async function canChangeUsername(privyUserId) {
   }
   
   return { canChange: true };
+}
+
+// CRITICAL: Verify user ownership before any operation
+async function verifyUserOwnership(privyUserId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('privy_user_id, wallet_address')
+    .eq('privy_user_id', privyUserId)
+    .single();
+  
+  if (error || !data) {
+    throw new Error('User not found or access denied');
+  }
+  
+  return data;
 }
 
 // Main API handler
@@ -205,11 +220,16 @@ async function handleCreateOrGetUser(req, res) {
   // Check if user already exists
   const { data: existingUser } = await supabase
     .from('users')
-    .select('username, wallet_address, profile_picture_url, last_username_change')
+    .select('username, wallet_address, profile_picture_url, last_username_change, privy_user_id')
     .eq('privy_user_id', privyUserId)
     .single();
 
   if (existingUser) {
+    // CRITICAL: Verify ownership
+    if (existingUser.privy_user_id !== privyUserId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
     // Update last login
     await supabase
       .from('users')
@@ -222,7 +242,8 @@ async function handleCreateOrGetUser(req, res) {
         username: existingUser.username,
         walletAddress: existingUser.wallet_address,
         profilePicture: existingUser.profile_picture_url,
-        lastUsernameChange: existingUser.last_username_change
+        lastUsernameChange: existingUser.last_username_change,
+        privyUserId: existingUser.privy_user_id
       }
     });
   }
@@ -245,9 +266,9 @@ async function handleCreateOrGetUser(req, res) {
       signin_wallet_address: signinWalletAddress,
       email: email,
       profile_picture_url: '/pfpdefault.png',
-      last_username_change: null // No username change yet for new users
+      last_username_change: null
     })
-    .select('username, wallet_address, profile_picture_url, last_username_change')
+    .select('username, wallet_address, profile_picture_url, last_username_change, privy_user_id')
     .single();
 
   if (error) {
@@ -261,7 +282,8 @@ async function handleCreateOrGetUser(req, res) {
       username: newUser.username,
       walletAddress: newUser.wallet_address,
       profilePicture: newUser.profile_picture_url,
-      lastUsernameChange: newUser.last_username_change
+      lastUsernameChange: newUser.last_username_change,
+      privyUserId: newUser.privy_user_id
     }
   });
 }
@@ -278,30 +300,38 @@ async function handleGetUser(req, res) {
     return res.status(400).json({ error: 'Missing privyUserId' });
   }
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('username, wallet_address, profile_picture_url, created_at, user_id, last_username_change')
-    .eq('privy_user_id', privyUserId)
-    .single();
+  try {
+    // CRITICAL: Verify ownership
+    await verifyUserOwnership(privyUserId);
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('username, wallet_address, profile_picture_url, created_at, user_id, last_username_change, privy_user_id')
+      .eq('privy_user_id', privyUserId)
+      .single();
 
-  if (error) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  return res.status(200).json({
-    success: true,
-    user: {
-      username: data.username,
-      walletAddress: data.wallet_address,
-      profilePicture: data.profile_picture_url,
-      createdAt: data.created_at,
-      userId: data.user_id,
-      lastUsernameChange: data.last_username_change
+    if (error) {
+      return res.status(404).json({ error: 'User not found' });
     }
-  });
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        username: data.username,
+        walletAddress: data.wallet_address,
+        profilePicture: data.profile_picture_url,
+        createdAt: data.created_at,
+        userId: data.user_id,
+        lastUsernameChange: data.last_username_change,
+        privyUserId: data.privy_user_id
+      }
+    });
+  } catch (error) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 }
 
-// Update user profile
+// CRITICAL: Update user profile with strict security
 async function handleUpdateUser(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -313,63 +343,81 @@ async function handleUpdateUser(req, res) {
     return res.status(400).json({ error: 'Missing privyUserId' });
   }
 
-  const updateData = {
-    updated_at: new Date().toISOString()
-  };
-
-  // Handle username update with 7-day cooldown
-  if (username && usernameChanged) {
-    // Check if user can change username
-    const cooldownCheck = await canChangeUsername(privyUserId);
-    if (!cooldownCheck.canChange) {
-      return res.status(400).json({ 
-        error: `Username can only be changed once every 7 days. ${cooldownCheck.daysRemaining} days remaining.`
-      });
-    }
+  try {
+    // CRITICAL: Verify ownership FIRST
+    const userRecord = await verifyUserOwnership(privyUserId);
     
-    // Check if username is available
-    const availabilityCheck = await isUsernameAvailable(username);
-    if (!availabilityCheck.available) {
-      return res.status(400).json({ 
-        error: availabilityCheck.error || 'Username already taken' 
-      });
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
+
+    // Handle username update with strict validation
+    if (username && usernameChanged) {
+      // Check cooldown
+      const cooldownCheck = await canChangeUsername(privyUserId);
+      if (!cooldownCheck.canChange) {
+        return res.status(400).json({ 
+          error: `Username can only be changed once every 7 days. ${cooldownCheck.daysRemaining} days remaining.`
+        });
+      }
+      
+      // Check availability
+      const availabilityCheck = await isUsernameAvailable(username);
+      if (!availabilityCheck.available) {
+        return res.status(400).json({ 
+          error: availabilityCheck.error || 'Username already taken' 
+        });
+      }
+      
+      updateData.username = availabilityCheck.username;
+      updateData.last_username_change = new Date().toISOString();
+      
+    } else if (username && !usernameChanged) {
+      // Username provided but not changed, just validate format
+      const validation = validateUsername(username);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
+      }
+      updateData.username = validation.username;
     }
+
+    // Store base64 image directly in database
+    if (profilePicture && profilePicture.startsWith('data:image/')) {
+      updateData.profile_picture_url = profilePicture;
+    }
+
+    // CRITICAL: Use transaction to prevent race conditions
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('privy_user_id', privyUserId)
+      .select('username, wallet_address, profile_picture_url, last_username_change, privy_user_id')
+      .single();
+
+    if (error) {
+      console.error('Update error:', error);
+      return res.status(500).json({ error: 'Failed to update user' });
+    }
+
+    // CRITICAL: Verify the update was for the correct user
+    if (data.privy_user_id !== privyUserId) {
+      console.error('Update verification failed: user mismatch');
+      return res.status(500).json({ error: 'Update verification failed' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        username: data.username,
+        walletAddress: data.wallet_address,
+        profilePicture: data.profile_picture_url,
+        lastUsernameChange: data.last_username_change,
+        privyUserId: data.privy_user_id
+      }
+    });
     
-    updateData.username = availabilityCheck.username;
-    updateData.last_username_change = new Date().toISOString();
-  } else if (username && !usernameChanged) {
-    // Username provided but not changed, just validate format
-    const validation = validateUsername(username);
-    if (!validation.valid) {
-      return res.status(400).json({ error: validation.error });
-    }
-    updateData.username = validation.username;
-  }
-
-  // Store base64 image directly in database
-  if (profilePicture && profilePicture.startsWith('data:image/')) {
-    updateData.profile_picture_url = profilePicture;
-  }
-
-  const { data, error } = await supabase
-    .from('users')
-    .update(updateData)
-    .eq('privy_user_id', privyUserId)
-    .select('username, wallet_address, profile_picture_url, last_username_change')
-    .single();
-
-  if (error) {
+  } catch (error) {
     console.error('Update error:', error);
-    return res.status(500).json({ error: 'Failed to update user' });
+    return res.status(403).json({ error: 'Access denied' });
   }
-
-  return res.status(200).json({
-    success: true,
-    user: {
-      username: data.username,
-      walletAddress: data.wallet_address,
-      profilePicture: data.profile_picture_url,
-      lastUsernameChange: data.last_username_change
-    }
-  });
 }

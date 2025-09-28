@@ -15,6 +15,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const [walletCopied, setWalletCopied] = useState(false);
   const [canChangeUsername, setCanChangeUsername] = useState(true);
   const [nextUsernameChangeDate, setNextUsernameChangeDate] = useState(null);
+  const [currentUserSession, setCurrentUserSession] = useState(null); // Track current session
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -25,9 +26,55 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // CRITICAL: Complete state reset function
+  const resetAllState = useCallback(() => {
+    setUsername('');
+    setSelectedImage(null);
+    setCroppedImage(null);
+    setCropping(false);
+    setLoading(false);
+    setImageUploading(false);
+    setError('');
+    setUsernameError('');
+    setCheckingUsername(false);
+    setWalletCopied(false);
+    setCanChangeUsername(true);
+    setNextUsernameChangeDate(null);
+    setCrop({ x: 50, y: 50, width: 200, height: 200 });
+    setIsDragging(false);
+    setIsResizing(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  // CRITICAL: Monitor for ANY user session change (including logout/login)
+  useEffect(() => {
+    // Create unique session identifier from user data
+    const newSession = userData?.walletAddress ? 
+      `${userData.walletAddress}-${userData.privyUserId || userData.id}` : 
+      null;
+    
+    // If session changed (including logout), completely reset
+    if (currentUserSession !== newSession) {
+      console.log('User session changed, resetting state:', { 
+        old: currentUserSession, 
+        new: newSession 
+      });
+      
+      resetAllState();
+      setCurrentUserSession(newSession);
+      
+      // Set username ONLY after confirming session
+      if (newSession && userData?.username) {
+        setUsername(userData.username);
+      }
+    }
+  }, [userData?.walletAddress, userData?.privyUserId, userData?.id, userData?.username, currentUserSession, resetAllState]);
+
   // Check if user can change username (7-day cooldown)
   useEffect(() => {
-    if (userData?.lastUsernameChange) {
+    if (userData?.lastUsernameChange && userData?.walletAddress && currentUserSession) {
       const lastChange = new Date(userData.lastUsernameChange);
       const sevenDaysLater = new Date(lastChange.getTime() + 7 * 24 * 60 * 60 * 1000);
       const now = new Date();
@@ -39,48 +86,34 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
         setCanChangeUsername(true);
         setNextUsernameChangeDate(null);
       }
+    } else if (currentUserSession) {
+      setCanChangeUsername(true);
+      setNextUsernameChangeDate(null);
     }
-  }, [userData?.lastUsernameChange]);
-
-  // Reset ALL state when userData changes (different user login)
-  useEffect(() => {
-    if (userData?.username) {
-      setUsername(userData.username);
-    } else {
-      setUsername('');
-    }
-    // Clear everything else
-    setSelectedImage(null);
-    setCroppedImage(null);
-    setCropping(false);
-    setError('');
-    setUsernameError('');
-    setWalletCopied(false);
-    setCheckingUsername(false);
-    setImageUploading(false);
-    setCrop({ x: 50, y: 50, width: 200, height: 200 });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [userData?.walletAddress]);
+  }, [userData?.lastUsernameChange, userData?.walletAddress, currentUserSession]);
 
   // Reset when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setSelectedImage(null);
-      setCroppedImage(null);
-      setCropping(false);
-      setError('');
-      setUsernameError('');
-      setCheckingUsername(false);
-      setWalletCopied(false);
-      setImageUploading(false);
-      setCrop({ x: 50, y: 50, width: 200, height: 200 });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      resetAllState();
     }
-  }, [isOpen]);
+  }, [isOpen, resetAllState]);
+
+  // Validation functions
+  const validateUserSession = () => {
+    if (!userData?.walletAddress || !currentUserSession) {
+      setError('Invalid session. Please close modal and try again.');
+      return false;
+    }
+    
+    const expectedSession = `${userData.walletAddress}-${userData.privyUserId || userData.id}`;
+    if (currentUserSession !== expectedSession) {
+      setError('Session mismatch detected. Please close modal and try again.');
+      return false;
+    }
+    
+    return true;
+  };
 
   const validateUsername = (value) => {
     const validChars = /^[a-zA-Z0-9-]*$/;
@@ -107,6 +140,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     const value = e.target.value.toLowerCase();
     setUsername(value);
     
+    // CRITICAL: Validate session before any operation
+    if (!validateUserSession()) {
+      return;
+    }
+    
     // Check if user can change username
     if (!canChangeUsername) {
       setUsernameError(`Username can only be changed once every 7 days. Next change available in ${formatTimeRemaining(nextUsernameChangeDate)}.`);
@@ -129,7 +167,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setUsernameError('');
     
     try {
-      // Check if username is available (no longer excluding current user to prevent hoarding)
       const response = await checkUsernameAvailable(value);
       if (!response.available) {
         setUsernameError('Username already taken');
@@ -142,6 +179,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleImageSelect = (e) => {
+    // CRITICAL: Validate session before processing
+    if (!validateUserSession()) {
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) return;
 
@@ -291,6 +333,10 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const copyWalletAddress = async () => {
+    if (!validateUserSession()) {
+      return;
+    }
+
     if (userData?.walletAddress) {
       try {
         await navigator.clipboard.writeText(userData.walletAddress);
@@ -303,6 +349,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleSave = async () => {
+    // CRITICAL: Final session validation before save
+    if (!validateUserSession()) {
+      return;
+    }
+
     if (usernameError || checkingUsername || imageUploading) {
       return;
     }
@@ -350,9 +401,10 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   // Check if save should be disabled
-  const isSaveDisabled = loading || usernameError || checkingUsername || imageUploading;
+  const isSaveDisabled = loading || usernameError || checkingUsername || imageUploading || !currentUserSession;
 
-  if (!isOpen) return null;
+  // Don't render if no valid session
+  if (!isOpen || !currentUserSession) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
