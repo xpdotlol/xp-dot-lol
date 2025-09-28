@@ -1,0 +1,329 @@
+.edit-modal-container {
+  background: var(--night);
+  border: 1px solid var(--eerie-black);
+  border-radius: 12px;
+  width: min(420px, 90%);
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  animation: slideUp 0.3s ease-out;
+}
+
+.edit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--eerie-black);
+  background: var(--night-2);
+}
+
+.edit-modal-header h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--silver);
+  margin: 0;
+}
+
+.edit-modal-content {
+  padding: 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.error-message {
+  background: rgba(220, 38, 127, 0.1);
+  border: 1px solid rgba(220, 38, 127, 0.3);
+  color: #ff6b9d;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.profile-section,
+.username-section,
+.wallet-info {
+  margin-bottom: 24px;
+}
+
+.section-label {
+  display: block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--silver);
+  margin-bottom: 8px;
+}
+
+.profile-picture-editor {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.current-picture {
+  flex-shrink: 0;
+}
+
+.profile-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--dim-gray);
+}
+
+.picture-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.select-image-btn,
+.reset-image-btn {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.select-image-btn {
+  background: var(--silver);
+  color: var(--night);
+  border-color: var(--silver);
+}
+
+.select-image-btn:hover {
+  background: #fff;
+  border-color: #fff;
+}
+
+.reset-image-btn {
+  background: transparent;
+  color: var(--dim-gray);
+  border-color: var(--eerie-black);
+}
+
+.reset-image-btn:hover {
+  background: var(--eerie-black);
+  border-color: var(--dim-gray);
+  color: var(--silver);
+}
+
+.image-hint {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--dim-gray);
+  margin: 8px 0 0 0;
+}
+
+.username-input {
+  width: 100%;
+  background: var(--night-2);
+  border: 1px solid var(--eerie-black);
+  color: var(--silver);
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.username-input:focus {
+  outline: none;
+  border-color: var(--dim-gray);
+}
+
+.wallet-display {
+  background: var(--night-2);
+  border: 1px solid var(--eerie-black);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wallet-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  color: var(--silver);
+  font-weight: 500;
+}
+
+.wallet-note {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--dim-gray);
+}
+
+.edit-modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--eerie-black);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-btn,
+.save-btn {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.cancel-btn {
+  background: transparent;
+  color: var(--dim-gray);
+  border-color: var(--eerie-black);
+}
+
+.cancel-btn:hover {
+  background: var(--eerie-black);
+  border-color: var(--dim-gray);
+  color: var(--silver);
+}
+
+.save-btn {
+  background: var(--silver);
+  color: var(--night);
+  border-color: var(--silver);
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Image Cropping Styles */
+.crop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.crop-container {
+  background: var(--night);
+  border: 1px solid var(--eerie-black);
+  border-radius: 8px;
+  width: min(500px, 90%);
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.crop-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--eerie-black);
+  background: var(--night-2);
+}
+
+.crop-header h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--silver);
+  margin: 0;
+}
+
+.crop-content {
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.image-crop-area {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  max-height: 400px;
+}
+
+.crop-image {
+  max-width: 100%;
+  max-height: 400px;
+  display: block;
+  user-select: none;
+}
+
+.crop-selector {
+  position: absolute;
+  border: 2px solid var(--silver);
+  background: rgba(187, 187, 187, 0.1);
+  cursor: move;
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
+}
+
+.crop-selector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: var(--silver);
+  border-radius: 50%;
+}
+
+.crop-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--eerie-black);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.crop-footer button {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.crop-footer button:first-child {
+  background: transparent;
+  color: var(--dim-gray);
+  border-color: var(--eerie-black);
+}
+
+.crop-footer button:first-child:hover {
+  background: var(--eerie-black);
+  border-color: var(--dim-gray);
+  color: var(--silver);
+}
+
+.crop-footer button:last-child {
+  background: var(--silver);
+  color: var(--night);
+  border-color: var(--silver);
+}
+
+.crop-footer button:last-child:hover {
+  background: #fff;
+  border-color: #fff;
+}

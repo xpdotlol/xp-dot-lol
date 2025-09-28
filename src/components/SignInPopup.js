@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { createOrGetUser } from '../utils/api';
+import EditProfileModal from './EditProfileModal';
 import './SignInPopup.css';
 
 const SignInPopup = () => {
@@ -11,6 +12,7 @@ const SignInPopup = () => {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (authenticated && user && !hasShownPopup) {
@@ -70,86 +72,118 @@ const SignInPopup = () => {
     setShowPopup(false);
   };
 
+  const openEditProfile = () => {
+    setShowEditModal(true);
+    setShowPopup(false);
+  };
+
+  const handleUserUpdate = (updatedUser) => {
+    setUserData(updatedUser);
+  };
+
+  // Format username to show 3 letters...3 letters
+  const formatUsername = (walletAddress) => {
+    if (!walletAddress) return 'Loading...';
+    return `${walletAddress.substring(0, 3)}...${walletAddress.substring(walletAddress.length - 3)}`;
+  };
+
   // Don't render if not authenticated or no user data
   if (!showPopup || !userData || loading) return null;
 
   // Error state
   if (error) {
     return (
-      <div className="popup-overlay" onClick={closePopup}>
-        <div className="popup-container" onClick={e => e.stopPropagation()}>
-          <div className="popup-header">
-            <h2 className="popup-title">Error</h2>
-            <button className="popup-close" onClick={closePopup}>✕</button>
-          </div>
-          <div className="profile-content">
-            <p style={{ color: 'var(--silver)', textAlign: 'center', padding: '20px' }}>
-              {error}
-            </p>
+      <>
+        <div className="popup-overlay" onClick={closePopup}>
+          <div className="popup-container" onClick={e => e.stopPropagation()}>
+            <div className="popup-header">
+              <h2 className="popup-title">Error</h2>
+              <button className="popup-close" onClick={closePopup}>✕</button>
+            </div>
+            <div className="profile-content">
+              <p style={{ color: 'var(--silver)', textAlign: 'center', padding: '20px' }}>
+                {error}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+        <EditProfileModal 
+          isOpen={showEditModal} 
+          onClose={() => setShowEditModal(false)}
+          userData={userData}
+          onUserUpdate={handleUserUpdate}
+        />
+      </>
     );
   }
 
   return (
-    <div className="popup-overlay" onClick={closePopup}>
-      <div className="popup-container" onClick={e => e.stopPropagation()}>
-        <div className="popup-header">
-          <h2 className="popup-title">Profile</h2>
-          <button className="popup-close" onClick={closePopup}>
-            ✕
-          </button>
-        </div>
-        
-        <div className="profile-content">
-          <div className="profile-avatar">
-            <img src="/pfpdefault.png" alt="Profile" />
+    <>
+      <div className="popup-overlay" onClick={closePopup}>
+        <div className="popup-container" onClick={e => e.stopPropagation()}>
+          <div className="popup-header">
+            <h2 className="popup-title">Profile</h2>
+            <button className="popup-close" onClick={closePopup}>
+              ✕
+            </button>
           </div>
           
-          <div className="profile-info">
-            <h3 className="profile-name">{userData.username}</h3>
+          <div className="profile-content">
+            <div className="profile-avatar">
+              <img src={userData.profilePicture || '/pfpdefault.png'} alt="Profile" />
+            </div>
             
-            <div className="wallet-section">
-              <p className="wallet-label">Wallet Address</p>
-              <div className="wallet-address-container">
-                <p className="wallet-address">
-                  {userData.walletAddress.substring(0, 8)}...{userData.walletAddress.substring(userData.walletAddress.length - 4)}
-                </p>
-                <button 
-                  className="copy-button" 
-                  onClick={copyWalletAddress}
-                  title={copied ? 'Copied!' : 'Copy wallet address'}
-                >
-                  {copied ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    </svg>
-                  )}
-                </button>
+            <div className="profile-info">
+              <h3 className="profile-name">{formatUsername(userData.walletAddress)}</h3>
+              
+              <div className="wallet-section">
+                <p className="wallet-label">Site Wallet Address</p>
+                <div className="wallet-address-container">
+                  <p className="wallet-address">
+                    {userData.walletAddress.substring(0, 8)}...{userData.walletAddress.substring(userData.walletAddress.length - 4)}
+                  </p>
+                  <button 
+                    className="copy-button" 
+                    onClick={copyWalletAddress}
+                    title={copied ? 'Copied!' : 'Copy wallet address'}
+                  >
+                    {copied ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="popup-footer">
-          <button className="popup-link" onClick={closePopup}>
-            Pledge
-          </button>
-          <button className="popup-link" onClick={closePopup}>
-            Markets
-          </button>
-          <button className="popup-link" onClick={closePopup}>
-            Edit Profile
-          </button>
+          <div className="popup-footer">
+            <button className="popup-link" onClick={closePopup}>
+              Pledge
+            </button>
+            <button className="popup-link" onClick={closePopup}>
+              Markets
+            </button>
+            <button className="popup-link" onClick={openEditProfile}>
+              Edit Profile
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <EditProfileModal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)}
+        userData={{...userData, privyUserId: user?.id}}
+        onUserUpdate={handleUserUpdate}
+      />
+    </>
   );
 };
 

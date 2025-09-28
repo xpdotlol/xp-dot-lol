@@ -1,4 +1,4 @@
-// api/user.js - Single unified API endpoint for all user operations
+// api/user.js - Updated with image upload support
 import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@solana/web3.js';
 import CryptoJS from 'crypto-js';
@@ -52,6 +52,41 @@ async function generateUserId() {
   const { data, error } = await supabase.rpc('generate_user_id');
   if (error) throw error;
   return data;
+}
+
+// Format username: 3 letters...3 letters
+function formatUsername(walletAddress) {
+  return `${walletAddress.substring(0, 3)}...${walletAddress.substring(walletAddress.length - 3)}`;
+}
+
+// Upload image to Supabase Storage
+async function uploadProfileImage(imageBase64, userId) {
+  try {
+    // Convert base64 to buffer
+    const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    const fileName = `profile_${userId}_${Date.now()}.jpg`;
+    
+    const { data, error } = await supabase.storage
+      .from('profile-pictures')
+      .upload(fileName, buffer, {
+        contentType: 'image/jpeg',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Image upload error:', error);
+    throw new Error('Failed to upload image');
+  }
 }
 
 // Main API handler
@@ -130,7 +165,7 @@ async function handleCreateOrGetUser(req, res) {
   const wallet = generateSolanaWallet();
   const encryptedPrivateKey = encryptPrivateKey(wallet.privateKey);
   const userId = await generateUserId();
-  const username = wallet.publicKey.substring(0, 8);
+  const username = formatUsername(wallet.publicKey);
 
   const { data: newUser, error } = await supabase
     .from('users')
@@ -143,7 +178,7 @@ async function handleCreateOrGetUser(req, res) {
       login_method: loginMethod,
       signin_wallet_address: signinWalletAddress,
       email: email,
-      profile_picture_url: 'pfpdefault.png'
+      profile_picture_url: '/pfpdefault.png'
     })
     .select('username, wallet_address, profile_picture_url')
     .single();
@@ -177,7 +212,7 @@ async function handleGetUser(req, res) {
 
   const { data, error } = await supabase
     .from('users')
-    .select('username, wallet_address, profile_picture_url, created_at')
+    .select('username, wallet_address, profile_picture_url, created_at, user_id')
     .eq('privy_user_id', privyUserId)
     .single();
 
@@ -191,7 +226,8 @@ async function handleGetUser(req, res) {
       username: data.username,
       walletAddress: data.wallet_address,
       profilePicture: data.profile_picture_url,
-      createdAt: data.created_at
+      createdAt: data.created_at,
+      userId: data.user_id
     }
   });
 }
@@ -208,12 +244,32 @@ async function handleUpdateUser(req, res) {
     return res.status(400).json({ error: 'Missing privyUserId' });
   }
 
+  // Get current user data for userId
+  const { data: currentUser } = await supabase
+    .from('users')
+    .select('user_id')
+    .eq('privy_user_id', privyUserId)
+    .single();
+
+  if (!currentUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
   const updateData = {
     updated_at: new Date().toISOString()
   };
 
   if (username) updateData.username = username;
-  if (profilePicture) updateData.profile_picture_url = profilePicture;
+
+  // Handle profile picture upload
+  if (profilePicture && profilePicture.startsWith('data:image/')) {
+    try {
+      const imageUrl = await uploadProfileImage(profilePicture, currentUser.user_id);
+      updateData.profile_picture_url = imageUrl;
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to upload image' });
+    }
+  }
 
   const { data, error } = await supabase
     .from('users')
