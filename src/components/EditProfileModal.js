@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { updateUser } from '../utils/api';
+import { updateUser, checkUsernameAvailable } from '../utils/api';
 import './EditProfileModal.css';
 
 const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
@@ -9,14 +9,64 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   const [cropping, setCropping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [walletCopied, setWalletCopied] = useState(false);
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
 
-  // Crop state - 500x500
-  const [crop, setCrop] = useState({ x: 0, y: 0, width: 500, height: 500 });
+  // Crop state
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const validateUsername = (value) => {
+    // Only allow letters, numbers, and hyphens
+    const validChars = /^[a-zA-Z0-9-]*$/;
+    if (!validChars.test(value)) {
+      return 'Only letters, numbers, and hyphens allowed';
+    }
+    if (value.length < 3) {
+      return 'Username must be at least 3 characters';
+    }
+    if (value.length > 20) {
+      return 'Username must be 20 characters or less';
+    }
+    return '';
+  };
+
+  const handleUsernameChange = async (e) => {
+    const value = e.target.value.toLowerCase(); // Force lowercase
+    setUsername(value);
+    
+    const validation = validateUsername(value);
+    if (validation) {
+      setUsernameError(validation);
+      return;
+    }
+
+    // Skip check if it's the same as current username
+    if (value === userData?.username?.toLowerCase()) {
+      setUsernameError('');
+      return;
+    }
+
+    // Check availability
+    setCheckingUsername(true);
+    setUsernameError('');
+    
+    try {
+      const response = await checkUsernameAvailable(value);
+      if (!response.available) {
+        setUsernameError('Username already taken');
+      }
+    } catch (error) {
+      setUsernameError('Error checking username');
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -54,22 +104,34 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
   };
 
   const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
     setIsDragging(true);
+    
+    const rect = e.currentTarget.getBoundingClientRect();
     setDragStart({
-      x: e.clientX - crop.x,
-      y: e.clientY - crop.y
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     });
-  }, [crop]);
+  }, []);
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging || !imageRef.current) return;
 
-    const rect = imageRef.current.getBoundingClientRect();
-    const newX = Math.max(0, Math.min(e.clientX - dragStart.x, rect.width - crop.width));
-    const newY = Math.max(0, Math.min(e.clientY - dragStart.y, rect.height - crop.height));
+    const imageRect = imageRef.current.getBoundingClientRect();
+    const parentRect = imageRef.current.parentElement.getBoundingClientRect();
+    
+    const newX = e.clientX - parentRect.left - dragStart.x;
+    const newY = e.clientY - parentRect.top - dragStart.y;
+    
+    // Constrain within image bounds (150px is crop selector size)
+    const maxX = imageRect.width - 150;
+    const maxY = imageRect.height - 150;
+    
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
 
-    setCrop(prev => ({ ...prev, x: newX, y: newY }));
-  }, [isDragging, dragStart, crop.width, crop.height]);
+    setCrop({ x: constrainedX, y: constrainedY });
+  }, [isDragging, dragStart]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -97,15 +159,21 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     canvas.width = 500;
     canvas.height = 500;
 
-    const scaleX = img.naturalWidth / img.width;
-    const scaleY = img.naturalHeight / img.height;
+    // Calculate scale between displayed and actual image
+    const scaleX = img.naturalWidth / img.offsetWidth;
+    const scaleY = img.naturalHeight / img.offsetHeight;
+
+    // Scale crop position and size to actual image coordinates
+    const actualCropX = crop.x * scaleX;
+    const actualCropY = crop.y * scaleY;
+    const actualCropSize = 150 * Math.max(scaleX, scaleY); // Maintain aspect ratio
 
     ctx.drawImage(
       img,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
+      actualCropX,
+      actualCropY,
+      actualCropSize,
+      actualCropSize,
       0,
       0,
       500,
@@ -119,12 +187,28 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
         setCropping(false);
       };
       reader.readAsDataURL(blob);
-    }, 'image/jpeg', 0.8);
+    }, 'image/jpeg', 0.9);
+  };
+
+  const copyWalletAddress = async () => {
+    if (userData?.walletAddress) {
+      try {
+        await navigator.clipboard.writeText(userData.walletAddress);
+        setWalletCopied(true);
+        setTimeout(() => setWalletCopied(false), 2000);
+      } catch (error) {
+        console.error('Failed to copy:', error);
+      }
+    }
   };
 
   const handleSave = async () => {
-    if (!userData?.username && !username.trim()) {
-      setError('Username is required');
+    if (usernameError || checkingUsername) {
+      return;
+    }
+
+    if (!username.trim()) {
+      setUsernameError('Username is required');
       return;
     }
 
@@ -134,7 +218,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     try {
       const updateData = {
         privyUserId: userData.privyUserId || userData.id,
-        username: username.trim() || userData.username,
+        username: username.trim(),
       };
 
       if (croppedImage) {
@@ -162,6 +246,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
     setCroppedImage(null);
     setCropping(false);
     setError('');
+    setCrop({ x: 0, y: 0 });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -182,57 +267,82 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
             <div className="error-message">{error}</div>
           )}
 
-          {/* Profile Picture Section */}
-          <div className="profile-section">
-            <label className="section-label">Profile Picture</label>
-            <div className="profile-picture-editor">
-              <div className="current-picture">
+          {/* 2x2 Grid Layout */}
+          <div className="profile-grid">
+            {/* Profile Picture */}
+            <div className="grid-item profile-section">
+              <label className="section-label">Profile Picture</label>
+              <div className="profile-picture-editor">
                 <img 
                   src={croppedImage || userData?.profilePicture || '/pfpdefault.png'} 
                   alt="Profile" 
                   className="profile-preview"
                 />
-              </div>
-              <div className="picture-controls">
-                <button 
-                  className="select-image-btn" 
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Select
-                </button>
-                {selectedImage && (
-                  <button className="reset-image-btn" onClick={resetImage}>
-                    Reset
+                <div className="picture-controls">
+                  <button 
+                    className="select-image-btn" 
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Select
                   </button>
-                )}
+                  {selectedImage && (
+                    <button className="reset-image-btn" onClick={resetImage}>
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="image-hint">Min 500x500 • Max 1.5MB</p>
+            </div>
+
+            {/* Username */}
+            <div className="grid-item username-section">
+              <label className="section-label">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={handleUsernameChange}
+                className={`username-input ${usernameError ? 'error' : ''}`}
+                placeholder="Enter username"
+                maxLength={20}
+              />
+              {checkingUsername && <p className="checking-text">Checking...</p>}
+              {usernameError && <p className="field-error">{usernameError}</p>}
+              <p className="username-hint">3-20 chars • a-z, 0-9, -</p>
+            </div>
+
+            {/* Site Wallet */}
+            <div className="grid-item wallet-section">
+              <label className="section-label">Site Wallet</label>
+              <div className="wallet-display">
+                <span className="wallet-text">
+                  {userData?.walletAddress ? 
+                    `${userData.walletAddress.substring(0, 6)}...${userData.walletAddress.substring(-4)}` 
+                    : 'Loading...'
+                  }
+                </span>
+                <button 
+                  className="copy-wallet-btn" 
+                  onClick={copyWalletAddress}
+                  title={walletCopied ? 'Copied!' : 'Copy wallet address'}
+                >
+                  {walletCopied ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
-            <p className="image-hint">Min 500x500 • Max 1.5MB • JPG, PNG, JPEG, WebP</p>
-          </div>
 
-          {/* Username Section */}
-          <div className="username-section">
-            <label className="section-label">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="username-input"
-              placeholder="Enter username"
-              maxLength={20}
-            />
-          </div>
-
-          {/* Wallet Info */}
-          <div className="wallet-info">
-            <label className="section-label">Site Wallet</label>
-            <div className="wallet-display">
-              <span className="wallet-text">
-                {userData?.walletAddress ? 
-                  `${userData.walletAddress.substring(0, 3)}...${userData.walletAddress.substring(userData.walletAddress.length - 3)}` 
-                  : 'Loading...'
-                }
-              </span>
+            {/* Empty slot for balance or future use */}
+            <div className="grid-item empty-section">
+              <div className="coming-soon">More features coming soon...</div>
             </div>
           </div>
         </div>
@@ -242,7 +352,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
           <button 
             className="save-btn" 
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || usernameError || checkingUsername}
           >
             {loading ? 'Saving...' : 'Save'}
           </button>
@@ -278,8 +388,8 @@ const EditProfileModal = ({ isOpen, onClose, userData, onUserUpdate }) => {
                     style={{
                       left: crop.x,
                       top: crop.y,
-                      width: crop.width,
-                      height: crop.height,
+                      width: 150,
+                      height: 150,
                     }}
                     onMouseDown={handleMouseDown}
                   />

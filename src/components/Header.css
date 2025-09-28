@@ -95,7 +95,13 @@
   color: #fff;
 }
 
-.signin-btn:disabled { opacity: 0.6; cursor: not-allowed }
+.loading-user {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--dim-gray);
+  padding: 6px 16px;
+}
 
 /* User Dropdown Styles */
 .user-dropdown-container {

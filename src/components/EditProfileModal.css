@@ -2,8 +2,8 @@
   background: var(--night);
   border: 1px solid var(--eerie-black);
   border-radius: 10px;
-  width: min(320px, 85%);
-  max-height: 75vh;
+  width: min(380px, 90%);
+  max-height: 80vh;
   overflow: hidden;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
   animation: slideUp 0.3s ease-out;
@@ -28,7 +28,7 @@
 
 .edit-modal-content {
   padding: 16px;
-  max-height: 50vh;
+  max-height: 60vh;
   overflow-y: auto;
 }
 
@@ -38,39 +38,46 @@
   color: #ff6b9d;
   padding: 8px 12px;
   border-radius: 4px;
-  font-size: 12px;
-  margin-bottom: 16px;
+  font-size: 11px;
+  margin-bottom: 12px;
   font-family: 'Montserrat', sans-serif;
 }
 
-.profile-section,
-.username-section,
-.wallet-info {
-  margin-bottom: 16px;
+/* 2x2 Grid Layout */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.grid-item {
+  display: flex;
+  flex-direction: column;
 }
 
 .section-label {
-  display: block;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--silver);
   margin-bottom: 6px;
 }
 
-.profile-picture-editor {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Profile Picture Section */
+.profile-section {
+  grid-row: span 2;
 }
 
-.current-picture {
-  flex-shrink: 0;
+.profile-picture-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .profile-preview {
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--dim-gray);
@@ -78,16 +85,16 @@
 
 .picture-controls {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .select-image-btn,
 .reset-image-btn {
   font-family: 'Montserrat', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -118,20 +125,22 @@
 
 .image-hint {
   font-family: 'Montserrat', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--dim-gray);
-  margin: 6px 0 0 0;
+  margin: 4px 0 0 0;
+  text-align: center;
 }
 
+/* Username Section */
 .username-input {
   width: 100%;
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
   color: var(--silver);
-  padding: 8px 10px;
-  border-radius: 4px;
+  padding: 6px 8px;
+  border-radius: 3px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   transition: border-color 0.2s;
 }
 
@@ -140,20 +149,94 @@
   border-color: var(--dim-gray);
 }
 
+.username-input.error {
+  border-color: rgba(220, 38, 127, 0.5);
+}
+
+.checking-text {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 9px;
+  color: var(--dim-gray);
+  margin: 2px 0 0 0;
+}
+
+.field-error {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 9px;
+  color: #ff6b9d;
+  margin: 2px 0 0 0;
+}
+
+.username-hint {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 9px;
+  color: var(--dim-gray);
+  margin: 2px 0 0 0;
+}
+
+/* Wallet Section */
 .wallet-display {
   background: var(--night-2);
   border: 1px solid var(--eerie-black);
-  border-radius: 4px;
-  padding: 8px 10px;
+  border-radius: 3px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .wallet-text {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--silver);
   font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.copy-wallet-btn {
+  background: none;
+  border: none;
+  color: var(--dim-gray);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+}
+
+.copy-wallet-btn:hover {
+  color: var(--silver);
+  background: var(--eerie-black);
+}
+
+/* Empty Section */
+.empty-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--night-2);
+  border: 1px solid var(--eerie-black);
+  border-radius: 3px;
+  padding: 8px;
+}
+
+.coming-soon {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 9px;
+  color: var(--dim-gray);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Modal Footer */
 .edit-modal-footer {
   padding: 12px 16px;
   border-top: 1px solid var(--eerie-black);
@@ -202,7 +285,7 @@
   cursor: not-allowed;
 }
 
-/* Image Cropping Styles */
+/* Crop Modal Styles */
 .crop-overlay {
   position: fixed;
   inset: 0;

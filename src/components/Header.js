@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePrivy } from '@privy-io/react-auth';
 import { getUser } from '../utils/api';
-import EditProfileModal from './EditProfileModal'; // ADD THIS IMPORT
+import EditProfileModal from './EditProfileModal';
 import './Header.css';
 
 const LANGUAGES = [
@@ -26,15 +26,25 @@ const Header = () => {
   const [lang, setLang] = useState('English');
   const [userData, setUserData] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
 
+  // Reset user data when not authenticated
   useEffect(() => {
-    if (authenticated && user) {
+    if (!authenticated) {
+      setUserData(null);
+      setIsLoadingUser(false);
+    }
+  }, [authenticated]);
+
+  // Fetch user data when authenticated and user exists
+  useEffect(() => {
+    if (authenticated && user && ready && !userData && !isLoadingUser) {
       fetchUserData();
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, ready, userData, isLoadingUser]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -48,6 +58,9 @@ const Header = () => {
   }, []);
 
   const fetchUserData = async () => {
+    if (!user?.id) return;
+    
+    setIsLoadingUser(true);
     try {
       const response = await getUser(user.id);
       if (response.success) {
@@ -55,6 +68,8 @@ const Header = () => {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+    } finally {
+      setIsLoadingUser(false);
     }
   };
 
@@ -93,7 +108,13 @@ const Header = () => {
     logout();
     setUserDropdown(false);
     setUserData(null);
+    setIsLoadingUser(false);
   };
+
+  // Determine what to show in header right section
+  const shouldShowUserButton = ready && authenticated && userData && !isLoadingUser;
+  const shouldShowSignInButton = ready && !authenticated;
+  const shouldShowLoading = ready && authenticated && (isLoadingUser || !userData);
 
   return (
     <>
@@ -114,7 +135,7 @@ const Header = () => {
           </nav>
         </div>
         <div className="header-right">
-          {authenticated && userData ? (
+          {shouldShowUserButton && (
             <div className="user-dropdown-container" ref={dropdownRef}>
               <button 
                 className="user-button" 
@@ -167,14 +188,19 @@ const Header = () => {
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {shouldShowSignInButton && (
             <button 
               className="signin-btn" 
-              onClick={() => authenticated ? logout() : login()}
-              disabled={!ready}
+              onClick={login}
             >
-              {authenticated ? 'Sign Out' : 'Sign In'}
+              Sign In
             </button>
+          )}
+
+          {shouldShowLoading && (
+            <div className="loading-user">Loading...</div>
           )}
           
           <div className="header-divider"/>

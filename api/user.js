@@ -1,4 +1,4 @@
-// api/user.js - Without Supabase Storage (stores base64 directly in database)
+// api/user.js - With unique username validation
 import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@solana/web3.js';
 import CryptoJS from 'crypto-js';
@@ -15,7 +15,7 @@ const rateLimiter = new Map();
 function checkRateLimit(ip) {
   const now = Date.now();
   const windowMs = 60000; // 1 minute
-  const maxRequests = 20; // 20 requests per minute per IP
+  const maxRequests = 30; // Increased for username checks
   
   if (!rateLimiter.has(ip)) {
     rateLimiter.set(ip, []);
@@ -54,9 +54,59 @@ async function generateUserId() {
   return data;
 }
 
-// Format username: 3 letters...3 letters
+// Format username: 3 letters...3 letters (only for wallet-based default usernames)
 function formatUsername(walletAddress) {
   return `${walletAddress.substring(0, 3)}...${walletAddress.substring(walletAddress.length - 3)}`;
+}
+
+// Validate username format
+function validateUsername(username) {
+  if (!username || typeof username !== 'string') {
+    return { valid: false, error: 'Username is required' };
+  }
+  
+  const trimmed = username.trim().toLowerCase();
+  
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'Username must be at least 3 characters' };
+  }
+  
+  if (trimmed.length > 20) {
+    return { valid: false, error: 'Username must be 20 characters or less' };
+  }
+  
+  // Only allow letters, numbers, and hyphens
+  const validChars = /^[a-zA-Z0-9-]+$/;
+  if (!validChars.test(trimmed)) {
+    return { valid: false, error: 'Username can only contain letters, numbers, and hyphens' };
+  }
+  
+  return { valid: true, username: trimmed };
+}
+
+// Check if username is available (case-insensitive)
+async function isUsernameAvailable(username, excludeUserId = null) {
+  const validation = validateUsername(username);
+  if (!validation.valid) {
+    return { available: false, error: validation.error };
+  }
+  
+  let query = supabase
+    .from('users')
+    .select('id')
+    .ilike('username', validation.username); // Case-insensitive search
+  
+  if (excludeUserId) {
+    query = query.neq('privy_user_id', excludeUserId);
+  }
+  
+  const { data, error } = await query.single();
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    throw error;
+  }
+  
+  return { available: !data, username: validation.username };
 }
 
 // Main API handler
@@ -86,12 +136,31 @@ export default async function handler(req, res) {
         return await handleGetUser(req, res);
       case 'update':
         return await handleUpdateUser(req, res);
+      case 'check-username':
+        return await handleCheckUsername(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
   } catch (error) {
     console.error('API Error:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// Check username availability
+async function handleCheckUsername(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { username, excludeUserId } = req.body;
+
+  try {
+    const result = await isUsernameAvailable(username, excludeUserId);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Username check error:', error);
+    return res.status(500).json({ error: 'Failed to check username' });
   }
 }
 
@@ -135,14 +204,14 @@ async function handleCreateOrGetUser(req, res) {
   const wallet = generateSolanaWallet();
   const encryptedPrivateKey = encryptPrivateKey(wallet.privateKey);
   const userId = await generateUserId();
-  const username = formatUsername(wallet.publicKey);
+  const defaultUsername = formatUsername(wallet.publicKey);
 
   const { data: newUser, error } = await supabase
     .from('users')
     .insert({
       user_id: userId,
       privy_user_id: privyUserId,
-      username: username,
+      username: defaultUsername,
       wallet_address: wallet.publicKey,
       wallet_private_key_encrypted: encryptedPrivateKey,
       login_method: loginMethod,
@@ -218,9 +287,18 @@ async function handleUpdateUser(req, res) {
     updated_at: new Date().toISOString()
   };
 
-  if (username) updateData.username = username;
+  // Validate and check username if provided
+  if (username) {
+    const availabilityCheck = await isUsernameAvailable(username, privyUserId);
+    if (!availabilityCheck.available) {
+      return res.status(400).json({ 
+        error: availabilityCheck.error || 'Username already taken' 
+      });
+    }
+    updateData.username = availabilityCheck.username;
+  }
 
-  // Store base64 image directly in database (no Supabase Storage needed)
+  // Store base64 image directly in database
   if (profilePicture && profilePicture.startsWith('data:image/')) {
     updateData.profile_picture_url = profilePicture;
   }
